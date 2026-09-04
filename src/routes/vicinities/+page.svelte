@@ -13,69 +13,11 @@
 	// rather than a plain asset import — a plain import emits a separate hashed file, and
 	// on a slow connection that extra round-trip recreates the exact black-flash we're fixing.
 	import vicinityIntroPoster from '$lib/images/vicinity-intro-poster.js';
+	import { hlsVideo } from '$lib/useHlsVideo';
 
 	// Segmented (HLS) version of the intro loop — lets the browser start playing
 	// after the first few-second chunk instead of waiting on the whole file.
 	const introVid = '/hls/intro/master.m3u8';
-
-	// Attaches whatever `url` points at to a <video> element: native <source> for
-	// a plain file, or an hls.js MediaSource session for a .m3u8 playlist (native
-	// HLS in Safari/iOS needs no library). Re-run by Svelte via `update()` whenever
-	// the bound url changes, so a single element can be reused across sources.
-	function attachVideoSource(node, url) {
-		let hls;
-		let currentUrl;
-
-		function teardownHls() {
-			if (hls) {
-				hls.destroy();
-				hls = null;
-			}
-		}
-
-		async function apply(u) {
-			if (u === currentUrl) return;
-			currentUrl = u;
-			teardownHls();
-
-			if (!u) {
-				node.removeAttribute('src');
-				node.load();
-				return;
-			}
-
-			if (!u.includes('.m3u8')) {
-				node.src = u;
-				return;
-			}
-
-			// Prefer hls.js (MediaSource-backed) wherever it's actually supported —
-			// checking canPlayType() first is a trap: some Chromium builds report
-			// "maybe" for the HLS mimetype without being able to decode it at all.
-			const { default: Hls } = await import('hls.js');
-			if (currentUrl !== u) return; // superseded while hls.js was loading
-			if (Hls.isSupported()) {
-				hls = new Hls();
-				hls.loadSource(u);
-				hls.attachMedia(node);
-				hls.on(Hls.Events.MANIFEST_PARSED, () => {
-					node.play().catch(() => {});
-				});
-			} else if (node.canPlayType('application/vnd.apple.mpegurl')) {
-				// Real native HLS (Safari/iOS)
-				node.src = u;
-			} else {
-				node.src = u; // last-resort fallback, likely won't play
-			}
-		}
-
-		apply(url);
-
-		return {
-			update: apply,
-			destroy: teardownHls
-		};
-	}
 
 	let currentUI = getContext('currentUI');
 	let cleanId;
@@ -131,16 +73,14 @@
 		vicinityImg.set('-');
 		console.log('vicinity mounted');
 
-		// Subtle zoom-in and fade-in transition for the background
+		// Subtle zoom-in transition for the background without hiding it
 		gsap.fromTo('.vicinity-bg-wrapper', 
 			{
-				scale: 1.12,
-				opacity: 0
+				scale: 1.05
 			},
 			{
 				scale: 1.0,
-				opacity: 1,
-				duration: 2.0,
+				duration: 1.5,
 				ease: 'power2.out'
 			}
 		);
@@ -593,7 +533,7 @@
 	{#if $vicinityImg === '-'}
 		{#key activeCategoryId}
 			<video
-				use:attachVideoSource={activeCategoryVideo}
+				use:hlsVideo={activeCategoryVideo}
 				poster={activeCategoryVideo === introVid ? vicinityIntroPoster : undefined}
 				autoplay
 				muted
@@ -610,7 +550,7 @@
 				<!-- Layer A: front while frontIsA, otherwise sits in back keeping its already-loaded content -->
 				<video
 					bind:this={videoElA}
-					use:attachVideoSource={videoSrcA}
+					use:hlsVideo={videoSrcA}
 					autoplay
 					muted
 					playsinline
@@ -627,7 +567,7 @@
 				<!-- Layer B: front while !frontIsA, otherwise sits in back keeping its already-loaded content -->
 				<video
 					bind:this={videoElB}
-					use:attachVideoSource={videoSrcB}
+					use:hlsVideo={videoSrcB}
 					autoplay
 					muted
 					playsinline

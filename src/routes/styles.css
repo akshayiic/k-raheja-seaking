@@ -1432,6 +1432,8 @@ button {
 	/* Prevent overscrolling/pulling showing white bar on phone */
 	html,
 	body {
+		background-color: #000000 !important;
+		color: #ffffff !important;
 		overflow: hidden !important;
 		position: fixed !important;
 		width: 100vw !important;

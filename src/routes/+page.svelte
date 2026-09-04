@@ -177,12 +177,29 @@
 	function handleIntroVideoEnded() {
 		if (!transitionTriggered) {
 			transitionTriggered = true;
-			triggerMenuTransition();
+			triggerMenuTransition(false);
 		}
 	}
 
-	async function triggerMenuTransition() {
-		captureIntroLastFrame();
+	function skipIntroVideo() {
+		if (transitionTriggered) return;
+		transitionTriggered = true;
+		if (typingTimer) clearTimeout(typingTimer);
+		if (introPlaybackEl) {
+			try {
+				introPlaybackEl.pause();
+			} catch (e) {}
+		}
+		if (introVideoLastFrame) {
+			introVideoLastFrame.set('/rahejanew1.png');
+		}
+		triggerMenuTransition(true);
+	}
+
+	async function triggerMenuTransition(isSkip = false) {
+		if (!isSkip) {
+			captureIntroLastFrame();
+		}
 
 		// Mount menu content immediately with no entry animations, and keep the navcard closed
 		shouldAnimateMenu = false;
@@ -193,17 +210,20 @@
 		// Wait for Svelte to mount the menu elements in the DOM
 		await tick();
 
+		const fadeDuration = isSkip ? 0.6 : 1.5;
+		const textFadeDuration = isSkip ? 0.4 : 1.2;
+
 		// Fade out the center text slowly and naturally
 		gsap.to('.video-intro-text', {
 			opacity: 0,
-			duration: 1.2,
+			duration: textFadeDuration,
 			ease: 'sine.inOut'
 		});
 
 		// Fade out the video intro screen container to reveal the menu container behind it smoothly
 		gsap.to('.video-intro-screen', {
 			opacity: 0,
-			duration: 1.5,
+			duration: fadeDuration,
 			ease: 'power2.out',
 			onComplete: () => {
 				try {
@@ -782,6 +802,7 @@
 <svelte:head>
 	<title>K Raheja</title>
 	<meta name="description" content="kl-raheja" />
+	<link rel="prefetch" href="/vicinity-intro.mp4" as="video" type="video/mp4" />
 </svelte:head>
 
 <Home />
@@ -1055,6 +1076,18 @@
 				{typedSubheading}<span class="typing-caret">|</span>
 			</p>
 		</div>
+		<!-- Skip Button on Bottom Right -->
+		<div class="video-skip-container absolute right-6 md:right-16 bottom-6 md:bottom-16 z-[2000000015] pointer-events-auto">
+			<button
+				id="skip-intro-btn"
+				on:click={skipIntroVideo}
+				class="get-started-btn skip-intro-btn cursor-pointer"
+				type="button"
+				aria-label="Skip video"
+			>
+				SKIP
+			</button>
+		</div>
 	</div>
 {/if}
 
@@ -1321,11 +1354,28 @@
 		animation: none !important;
 	}
 
+	.skip-intro-btn {
+		backdrop-filter: blur(12px) !important;
+		-webkit-backdrop-filter: blur(12px) !important;
+		letter-spacing: 0.15em !important;
+		min-width: 140px !important;
+		z-index: 2000000015 !important;
+	}
+
+	.skip-intro-btn:active {
+		transform: scale(0.97) !important;
+	}
+
 	@media (max-width: 768px), (max-width: 950px) and (orientation: landscape) {
 		.get-started-btn {
 			padding: 0.5rem 1.75rem !important;
 			font-size: 0.8rem !important;
 			min-width: 120px !important;
+		}
+
+		.skip-intro-btn {
+			min-width: 110px !important;
+			padding: 0.5rem 1.5rem !important;
 		}
 	}
 

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" style="background-color: #000000; color: #ffffff;">
 	<head>
 		<meta charset="utf-8" />
 
@@ -9,6 +9,10 @@
 		<link href="https://fonts.googleapis.com/css2?family=Imprima&family=Viaoda+Libre&display=swap" rel="stylesheet">
 		<style>
 			@import url('https://fonts.googleapis.com/css2?family=Viaoda+Libre&display=swap');
+			html, body {
+				background-color: #000000 !important;
+				color: #ffffff !important;
+			}
 			.cloudimage-360-modal-description, .box-description {
 				font-family: 'Viaoda Libre', serif !important;
 			}
@@ -18,7 +22,7 @@
 		%sveltekit.head%
 	</head>
 
-	<body data-sveltekit-preload-data="hover">
+	<body data-sveltekit-preload-data="hover" style="background-color: #000000; margin: 0; padding: 0;">
 		<div style="display: contents">%sveltekit.body%</div>
 		<script src="scripts/js-cloudimage-360-view.min.js"></script>
 	</body>
