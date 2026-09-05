@@ -2,7 +2,7 @@
 	"name": "k-raheja",
 	"version": "0.0.1",
 	"engines": {
-		"node": "20.x"
+		"node": ">=20.0.0"
 	},
 	"scripts": {
 		"dev": "vite dev",
