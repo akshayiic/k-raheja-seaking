@@ -16,6 +16,7 @@
 	import views1Video from '$lib/videos/views1.mp4';
 	import vicinityVideo from '$lib/videos/vicinity.mp4';
 	import subtractImg from '$lib/images/subtract.png';
+	import rahejaLogo from '$lib/images/rahejanew.png';
 	import { onMount, onDestroy, tick } from 'svelte';
 	import { gsap } from 'gsap';
 	// Create a store and update it when necessary...
@@ -882,9 +883,12 @@
 					</div>
 
 					<!-- K RAHEJA -->
-					<h1 class="text-2xl md:text-5xl tracking-[0.12em] uppercase text-white my-1 md:my-3 font-normal font-serif leading-none" style="font-family: 'Viaoda Libre', serif;">
-						K RAHEJA
-					</h1>
+				 	<img 
+		src={rahejaLogo} 
+		alt="Raheja Logo" 
+		class="text-logo cursor-pointer" 
+	 
+	/>
 
 					<!-- Description -->
 					<p class="text-[9px] md:text-[15px] font-light text-white/70 leading-relaxed tracking-wider normal-case " style="font-family: 'Imprima', sans-serif;">
@@ -1071,7 +1075,12 @@
 			</button>
 		{/if}
 		<div class="video-intro-text absolute inset-0 flex flex-col items-center justify-center text-center px-4 pointer-events-none" class:transitioning={introTransitioning}>
-			<h1 class="video-intro-heading">K RAHEJA</h1>
+				 	<img 
+		src={rahejaLogo} 
+		alt="Raheja Logo" 
+		class=" cursor-pointer" 
+	 
+	/>
 			<p class="video-intro-subheading">
 				{typedSubheading}<span class="typing-caret">|</span>
 			</p>
@@ -1364,6 +1373,11 @@
 
 	.skip-intro-btn:active {
 		transform: scale(0.97) !important;
+	}
+
+	.text-logo {
+		width: 80px;
+		height: auto;
 	}
 
 	@media (max-width: 768px), (max-width: 950px) and (orientation: landscape) {
