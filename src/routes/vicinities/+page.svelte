@@ -9,15 +9,11 @@
 	import { slide } from 'svelte/transition';
 	import { browser } from '$app/environment';
 	import { gsap } from 'gsap';
-	// Poster is a base64 data URI baked into this .js module (see vicinity-intro-poster.js)
-	// rather than a plain asset import — a plain import emits a separate hashed file, and
-	// on a slow connection that extra round-trip recreates the exact black-flash we're fixing.
-	import vicinityIntroPoster from '$lib/images/vicinity-intro-poster.js';
 	import { hlsVideo } from '$lib/useHlsVideo';
+	import { vicinityCategories, vicinityIntroVideo, findVicinityItem } from '$lib/seakingAssets.js';
 
-	// Segmented (HLS) version of the intro loop — lets the browser start playing
-	// after the first few-second chunk instead of waiting on the whole file.
-	const introVid = '/hls/intro/master.m3u8';
+	// Default background loop shown when no location is selected
+	const introVid = vicinityIntroVideo;
 
 	let currentUI = getContext('currentUI');
 	let cleanId;
@@ -51,7 +47,8 @@
 	let videoLoading = false;
 	let videoLoadSafetyTimer;
 
-	$: displaySrc = $vicinityImg != '-' ? 'https://assets.vestate.io/webtool/kraheja/kraheja/vicinities/' + $vicinityImg : '';
+	// Still-image fallback (only shown if a location has no video): first gallery image
+	$: displaySrc = $vicinityImg != '-' ? (findVicinityItem($vicinityImg)?.gallery ?? '') + '/1.webp' : '';
 	$: {
 		if (displaySrc && displaySrc !== activeSrc) {
 			prevSrc = activeSrc;
@@ -164,17 +161,9 @@
 		videoLoading = true;
 	}
 
-	function handleTimeUpdate(isLayerA) {
-		const currentEl = isLayerA ? videoElA : videoElB;
-		if (currentEl && $vicinityImg === 'Retail%20And%20Lifestyle/JioWorldDrive.webp') {
-			if (currentEl.currentTime >= 6) {
-				currentEl.pause();
-			}
-		}
-	}
-
 	$: {
 		const oldVideo = frontIsA ? videoSrcA : videoSrcB;
+		// activeFolder = gallery base URL; activeCategoryFolder = owning category id
 		activeFolder = '';
 		activeCategoryFolder = '';
 		activeLabel = '';
@@ -184,38 +173,13 @@
 		for (const cat of vicinityCategories) {
 			const found = cat.items.find((item) => item.id === $vicinityImg);
 			if (found) {
-				activeFolder = found.folder || '';
-				activeCategoryFolder = cat.folder || '';
+				activeFolder = found.gallery || '';
+				activeCategoryFolder = cat.id;
 				activeLabel = found.label || '';
 				activeDistance = found.distance || '';
-				if (found.video) {
-					nextVideo = found.video;
-				} else if (found.folder && cat.folder) {
-					// `folder` names the image gallery path; `videoFolder`/`videoName` override it
-					// when the video CDN uses a different (usually shorter) folder/file name.
-					const encodedCat = cat.videoFolder || cat.folder;
-					const encodedSub = encodeURIComponent(found.videoName || found.folder);
-					// `hls: true` opts a clip into chunked playback once its segmented
-					// master.m3u8 + .ts files have been uploaded to that same CDN folder —
-					// until then, leave it pointing at the plain .mp4.
-					nextVideo = found.hls
-						? `https://assets.vestate.io/kl-rahega/videos/${encodedCat}/${encodedSub}/master.m3u8`
-						: `https://assets.vestate.io/k_raheja/${encodedCat}/${encodedSub}.mp4`;
-				}
+				nextVideo = found.video || '';
 				break;
 			}
-		}
-
-		if (nextVideo && (
-			$vicinityImg === 'Connectivity/BKCMetrostation.webp' || 
-			$vicinityImg === 'Commercial/LowerParel.webp' ||
-			$vicinityImg === 'Connectivity/CoastalRoad.webp'
-		)) {
-			nextVideo += '#t=1';
-		}
-
-		if (nextVideo && $vicinityImg === 'Retail%20And%20Lifestyle/JioWorldDrive.webp') {
-			nextVideo += '#t=0,6';
 		}
 
 		if ($vicinityImg !== '-') {
@@ -236,10 +200,7 @@
 					const backEl = frontIsA ? videoElB : videoElA;
 					
 					if (currentEl) {
-						const startSec = ($vicinityImg === 'Connectivity/BKCMetrostation.webp' || 
-										  $vicinityImg === 'Commercial/LowerParel.webp' || 
-										  $vicinityImg === 'Connectivity/CoastalRoad.webp') ? 1 : 0;
-						currentEl.currentTime = startSec;
+						currentEl.currentTime = 0;
 						currentEl.play().catch((err) => console.log('Autoplay play error:', err));
 					}
 					if (backEl) {
@@ -261,12 +222,10 @@
 				}
 			} else {
 				// The video is already loaded on the front layer, but the user re-selected it.
-				// We should seek to the start (or 1s for special videos) and play.
+				// We should seek to the start and play.
 				const currentEl = frontIsA ? videoElA : videoElB;
 				if (currentEl) {
-					const startSec = ($vicinityImg === 'Connectivity/BKCMetrostation.webp' ||   
-									  $vicinityImg === 'Connectivity/CoastalRoad.webp') ? 1 : 0;
-					currentEl.currentTime = startSec;
+					currentEl.currentTime = 0;
 					currentEl.play().catch((err) => console.log('Autoplay play error:', err));
 				}
 			}
@@ -307,116 +266,6 @@
 
 	// Organized vicinities from local folder structure
 	const isDay = writable();
-
-	// Vicinity data organized by category
-	const vicinityCategories = [
-		{
-			id: 'connectivity',
-			name: 'Connectivity',
-			folder: 'Connectivity',
-			videoFolder: 'Connectivity3',
-			video360: "https://assets.vestate.io/kl-rahega/videos/touch-points/Connectivity.mp4",
-			items: [
-				{ id: 'Connectivity/BandraTerminus.webp', label: 'Bandra Terminus', folder: 'Bandra Terminus', videoName: 'Bandra Terminus', distance: '2.5 KM', subcategory: 'Railway' },
-				{ id: 'Connectivity/BKCMetrostation.webp', label: 'BKC Metro Station', folder: 'BKC Metro station', videoName: 'BKC Metro Station', distance: '1.8 KM', subcategory: 'Metro' },
-				{ id: 'Connectivity/SantacruzMetroLine.webp', label: 'Santa Cruz Metro Line', folder: 'Santacruz Metro line 3', videoName: 'St.cruz metro', distance: '2.1 KM', subcategory: 'Metro' },
-				{ id: 'Connectivity/CoastalRoad.webp', label: 'Coastal Road', folder: 'Coastal Road', videoName: 'Coastal Road', distance: '4.2 KM', subcategory: 'Roadways' },
-				{ id: 'Connectivity/Versova Bandra Sea Link.webp', label: 'Versova–Bandra Sea Link', folder: 'Versova-Bandra sea link', videoName: 'Versova', distance: '3.5 KM', subcategory: 'Roadways' },
-				{ id: 'Connectivity/WesternExpressHighway.webp', label: 'Western Express Highway', folder: 'Western Express Highway', videoName: 'Western Express', distance: '1.0 KM', subcategory: 'Roadways' },
-				{ id: 'Connectivity/WorliSeaLink.webp', label: 'Bandra Worli Sea Link', folder: 'Bandra Worli Sea Link', videoName: 'Bandra Worli Sea Link', distance: '3.8 KM', subcategory: 'Roadways' }
-			]
-		},
-		{
-			id: 'cafe-club',
-			name: 'Cafes & Clubs',
-			folder: 'Cafe%20%26%20Clubs',
-			videoFolder: 'Cafes',
-			video360: 'https://assets.vestate.io/kl-rahega/videos/touch-points/Cafe.mp4',
-			items: [
-				{ id: 'Cafe%20and%20Club/Bastian.webp', label: 'Bastian', folder: 'Bastian', distance: '1.2 KM' },
-				{ id: 'Cafe%20and%20Club/Khar Gymkhana.webp', label: 'Khar Gymkhana', folder: 'Khar Gymkhana', distance: '0.8 KM' },
-				{ id: 'Cafe%20and%20Club/MIG.webp', label: 'MIG', folder: 'MIG', distance: '1.5 KM' },
-				{ id: 'Cafe%20and%20Club/NationalSportsClubofIndia.webp', label: 'National Sports Club of India', folder: 'National Sports Club of India', videoName: 'National sports', distance: '5.0 KM' },
-				{ id: 'Cafe%20and%20Club/Otters.webp', label: 'Otters Club', folder: 'Otter_s', videoName: 'Otters', distance: '1.1 KM' },
-				{ id: 'Cafe%20and%20Club/PaliVillageCafé.webp', label: 'Pali Village Café', folder: 'Pali Village Cafe', distance: '0.9 KM' },
-				{ id: 'Cafe%20and%20Club/Taj lounges .webp', label: 'Taj Lands End', folder: 'Taj Lounges', videoName: 'Taj Lounges', distance: '4.5 KM' },
-				{ id: 'Cafe%20and%20Club/Toto\'s.webp', label: 'Toto\'s', folder: 'Toto_s', distance: '0.7 KM' },
-				{ id: 'Cafe%20and%20Club/Veronicas Pali Hill Cafes.webp', label: 'Veronicas Pali Hill Cafes', folder: 'Veronica_s-Pali Hill Cafes', videoName: 'Veronica_s', distance: '0.6 KM' },
-				{ id: 'Cafe%20and%20Club/WillingdonClub .webp', label: 'Willingdon Club', folder: 'Willingdon club', videoName: 'Willington', distance: '6.2 KM' }
-			]
-		},
-		{
-			id: 'commercial',
-			name: 'Commercial',
-			folder: 'Commercial',
-			video360: 'https://assets.vestate.io/kl-rahega/videos/touch-points/Commercial.mp4',
-			items: [
-				{ id: 'Commercial/BKC  .webp', label: 'BKC', folder: 'BKC',  distance: '1.8 KM' },
-				{ id: 'Commercial/JioWorldCentre.webp', label: 'Jio World Centre', folder: 'Jio World Centre',  distance: '2.0 KM' },
-				{ id: 'Commercial/LowerParel.webp', label: 'Lower Parel', folder: 'Lower Parel', videoName: 'Lower Parel1', distance: '8.5 KM' },
-				{ id: 'Commercial/NMAC .webp', label: 'NMACC', folder: 'NMAC', videoName: 'NMACC', distance: '2.0 KM' },
-				{ id: 'Commercial/Worli.webp', label: 'Worli Business District', folder: 'Worli',videoName: "Worli1" , distance: '9.0 KM' }
-			]
-		},
-		{
-			id: 'hospital',
-			name: 'Hospitals',
-			folder: 'Hospitals',
-			videoFolder: 'Hospitals2',
-			video360: 'https://assets.vestate.io/kl-rahega/videos/touch-points/Hospital.mp4',
-			items: [
-				{ id: 'Hospital/Asian Heart Institute.webp', label: 'Asian Heart Institute', folder: 'Asian Heart Institute', distance: '2.2 KM' },
-				{ id: 'Hospital/HolyFamily  .webp', label: 'Holy Family', folder: 'Holy Family Hospital', videoName: 'Holy Family Hosp', distance: '1.6 KM' },
-				{ id: 'Hospital/LilavatiHospital.webp', label: 'Lilavati Hospital', folder: 'Lilavati Hospital', videoName: 'Lilavati Hospital ', distance: '1.3 KM' }
-			]
-		},
-		{
-			id: 'education',
-			name: 'Education Institutes',
-			folder: 'Education%20Institutes',
-			videoFolder: 'Education',
-			video360: 'https://assets.vestate.io/kl-rahega/videos/touch-points/School.mp4',
-			items: [
-				{ id: 'Education/AmericanSchoolofBombay.webp', label: 'American School of Bombay', folder: 'American School of Bombay', videoName: 'American School', distance: '2.4 KM' },
-				{ id: 'Education/DhirubhaiAmbani.webp', label: 'Dhirubhai Ambani International School', folder: 'Dhirubhai Ambani International School', videoName: 'Dhirubhai Ambani', distance: '2.2 KM' },
-				{ id: 'Education/StAndrews .webp', label: 'St. Andrews', folder: 'St. Andrews College', videoName: 'St Andrew_s College', distance: '1.1 KM' },
-				{ id: 'Education/StStanislaus.webp', label: 'St. Stanislaus', folder: 'St. Stanislaus International School', videoName: 'St Stanislaus School', distance: '0.8 KM' }
-			]
-		},
-		{
-			id: 'faith-heritage',
-			name: 'Faith & Heritage',
-			folder: 'Faith%20%26%20Heritage',
-			videoFolder: 'Faith',
-			video360: 'https://assets.vestate.io/kl-rahega/videos/touch-points/Faith.mp4',
-			items: [
-				{ id: 'Faith%20And%20Heritage/Mount Mary Basilica.webp', label: 'Mount Mary Basilica', folder: 'Mount Mary', videoName: 'Mount Mary', distance: '1.7 KM' }
-			]
-		},
-		{
-			id: 'retail-lifestyle',
-			name: 'Retail & Lifestyle',
-			folder: 'Retail%20%26%20Lifestyle',
-			videoFolder: 'Retail',
-			video360: 'https://assets.vestate.io/kl-rahega/videos/touch-points/Retail.mp4',
-			items: [
-				{ id: 'Retail%20And%20Lifestyle/Bandstand.webp', label: 'Bandstand', folder: 'Bandstand', distance: '1.4 KM' },
-				{ id: 'Retail%20And%20Lifestyle/CarterRoad.webp', label: 'Carter Road', folder: 'Carter Road', distance: '1.5 KM' },
-				{ id: 'Retail%20And%20Lifestyle/JioWorldDrive.webp', label: 'Jio World Drive', folder: 'Jio World Drive', distance: '2.3 KM' },
-				{ id: 'Retail%20And%20Lifestyle/LinkingHillRoad .webp', label: 'Pali Hill/Linking Road', folder: 'Linking-Hill Road', videoName: 'Linking Road', distance: '0.5 KM' }
-			]
-		}
-	];
-
-	// Only these vicinities get the "Towards X" signpost label (matched to closest item by name)
-	const towardsLabelIds = [
-		'Connectivity/SantacruzMetroLine.webp', // Towards Santacruz Metro Line3
-		'Connectivity/WesternExpressHighway.webp', // Towards Western Express Highway
-		'Cafe%20and%20Club/NationalSportsClubofIndia.webp', // Towards National Sports Club of India
-		'Cafe%20and%20Club/WillingdonClub .webp', // Towards Willingdon club
-		'Commercial/Worli.webp', // Towards Worli
-		'Commercial/LowerParel.webp' // Towards Lower Parel
-	];
 
 	function toggleDayNight() {
 		isDay.update((value) => !value);
@@ -534,7 +383,6 @@
 		{#key activeCategoryId}
 			<video
 				use:hlsVideo={activeCategoryVideo}
-				poster={activeCategoryVideo === introVid ? vicinityIntroPoster : undefined}
 				autoplay
 				muted
 				loop
@@ -558,7 +406,6 @@
 					class="absolute top-0 left-0 h-full w-full object-cover vicinity-video-fade {frontIsA ? 'z-20' : 'z-10'} {(frontIsA ? videoLoading : !videoLoading) ? 'is-loading' : 'is-ready'}"
 					on:playing={() => markLayerReady(true)}
 					on:canplay={() => markLayerReady(true)}
-					on:timeupdate={() => handleTimeUpdate(true)}
 					on:loadstart={() => markLayerLoading(true)}
 					on:waiting={() => markLayerLoading(true)}
 					on:error={() => markLayerErrored(true, videoSrcA)}
@@ -575,7 +422,6 @@
 					class="absolute top-0 left-0 h-full w-full object-cover vicinity-video-fade {!frontIsA ? 'z-20' : 'z-10'} {(!frontIsA ? videoLoading : !videoLoading) ? 'is-loading' : 'is-ready'}"
 					on:playing={() => markLayerReady(false)}
 					on:canplay={() => markLayerReady(false)}
-					on:timeupdate={() => handleTimeUpdate(false)}
 					on:loadstart={() => markLayerLoading(false)}
 					on:waiting={() => markLayerLoading(false)}
 					on:error={() => markLayerErrored(false, videoSrcB)}
@@ -604,8 +450,8 @@
 
 <!-- Right-side gallery card (preview with dots) -->
 {#if activeFolder && activeCategoryFolder && !galleryCollapsed}
-	{@const activePreviewUrl = `https://assets.vestate.io/kl-rahega/images/${activeCategoryFolder}/${encodeURIComponent(activeFolder)}/${cardSlideIndex}.png`}
-	<div class="right-gallery-card p-4 select-none animate-fade-in text-left {activeFolder === 'Willingdon club' ? 'right-gallery-card--willingdon' : ''}">
+	{@const activePreviewUrl = `${activeFolder}/${cardSlideIndex}.webp`}
+	<div class="right-gallery-card p-4 select-none animate-fade-in text-left {$vicinityImg === 'Cafe & Clubs/willingdonclub' ? 'right-gallery-card--willingdon' : ''}">
 		<!-- Header with Title & Distance & Close Button -->
 		<div class="flex justify-between items-start mb-4">
 			<div class="flex flex-col pr-4">
@@ -689,7 +535,7 @@
 			</button>
 
 			<img
-				src={`https://assets.vestate.io/kl-rahega/images/${activeCategoryFolder}/${encodeURIComponent(activeFolder)}/${lightboxIndex}.png`}
+				src={`${activeFolder}/${lightboxIndex}.webp`}
 				alt={`${activeLabel} Gallery`}
 				class="w-full h-full object-cover rounded-[10px] select-none"
 			/>

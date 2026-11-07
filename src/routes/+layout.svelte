@@ -108,12 +108,8 @@
 		switchChecker();
 		if ($page.url.pathname === '/') {
 			show('overview');
-			const currentPanelVal = get(UIPanel);
-			if (currentPanelVal !== 'menu' && $page.url.searchParams.get('menu') !== 'true') {
-				UIPanel.set('loading');
-			} else if ($page.url.searchParams.get('menu') === 'true') {
-				UIPanel.set('menu');
-			}
+			// Intro videos removed — the home route always opens straight on the menu.
+			UIPanel.set('menu');
 		} else if ($page.url.pathname === '/menu') {
 			show('overview');
 			UIPanel.set('loaded');
@@ -190,7 +186,7 @@
 		class="raheja-logo cursor-pointer" 
 		class:hidden={$UIPanel == 'loading'} 
 		on:click={() => {
-			UIPanel.set('loading');
+			UIPanel.set('menu');
 			goto('/');
 		}} 
 	/>
@@ -354,7 +350,7 @@
 							highlights: false,
 							vicinity: false
 						};
-						UIPanel.set('loading');
+						UIPanel.set('menu');
 						if (typeof sessionStorage !== 'undefined') {
 							sessionStorage.clear();
 						}

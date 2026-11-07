@@ -8,11 +8,6 @@
 	import 'iconify-icon';
 	import instructionIcon from '$lib/images/instruction-icon.svg';
 	import instructionPanoIcon from '$lib/images/instruction-pano.svg';
-	import newRahejaVid from '$lib/videos/new-raheja1.mp4';
-	// Poster is a base64 data URI baked into this .js module (see intro-poster.js) rather
-	// than a plain asset import — a plain import emits a separate hashed file, and on a
-	// slow connection that extra round-trip recreates the exact black-flash we're fixing.
-	import introPoster from '$lib/images/intro-poster.js';
 	import views1Video from '$lib/videos/views1.mp4';
 	import vicinityVideo from '$lib/videos/vicinity.mp4';
 	import subtractImg from '$lib/images/subtract.png';
@@ -54,12 +49,13 @@
 	let exitFogTween;
 
 	// Svelte 5 state variables for menu content
-	let showMenuContent = $state(false);
+	// Intro videos removed — open directly on the building + navigation cards.
+	let showMenuContent = $state(true);
 	let shouldAnimateMenu = $state(false);
 	let transitionTriggered = false;
 	let activeCategoryTitle = $state('');
 	let activeCategoryDesc = $state('');
-	let menuBgUrl = $derived(introVideoLastFrame ? ($introVideoLastFrame || '/rahejanew1.png') : '/rahejanew1.png');
+	let menuBgUrl = $derived(introVideoLastFrame ? ($introVideoLastFrame || '/landing.png') : '/landing.png');
 
 	function after(ms, fn) {
 		return setTimeout(fn, ms);
@@ -192,7 +188,7 @@
 			} catch (e) {}
 		}
 		if (introVideoLastFrame) {
-			introVideoLastFrame.set('/rahejanew1.png');
+			introVideoLastFrame.set('/landing.png');
 		}
 		triggerMenuTransition(true);
 	}
@@ -344,7 +340,11 @@
 			}
 
 			displacement.y *= u_aspectRatio;
-			gl_FragColor = texture2D(u_image, tc - displacement);
+			if (v_texCoord.x < 0.0 || v_texCoord.x > 1.0 || v_texCoord.y < 0.0 || v_texCoord.y > 1.0) {
+				gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+			} else {
+				gl_FragColor = texture2D(u_image, tc - displacement);
+			}
 		}
 	`;
 
@@ -434,17 +434,12 @@
 		const imageRatio = imgWidth / imgHeight;
 		const canvasRatio = canvasWidth / canvasHeight;
 
-		if (canvasRatio > imageRatio) {
-			uScale = 1.0;
-			vScale = imageRatio / canvasRatio;
-			uOffset = 0.0;
-			vOffset = (1.0 - vScale) * 0.5;
-		} else {
-			uScale = canvasRatio / imageRatio;
-			vScale = 1.0;
-			uOffset = (1.0 - uScale) * 0.5;
-			vOffset = 0.0;
-		}
+		// Full image height always visible (no top/bottom crop); width is stretched
+		// to fill the screen horizontally.
+		uScale = 1.0;
+		vScale = 1.0;
+		uOffset = 0.0;
+		vOffset = 0.0;
 	}
 
 	function resizeCanvas() {
@@ -718,8 +713,11 @@
 
 	onMount(async () => {
 		unsubscribeUIPanel = UIPanel.subscribe((val) => {
+			if (val === 'menu') {
+				showMenuContent = true;
+			}
 			if (val === 'loading') {
-				showMenuContent = false;
+				showMenuContent = true;
 				showVideoIntro = false;
 				typedSubheading = '';
 				transitionTriggered = false;
@@ -838,77 +836,6 @@
 </div>
 
 <!-- <img src={lntLogo} alt="" id="lntlogo" class="absolute left-5 top-5 z-[2000000002]" /> -->
-{#if $UIPanel == 'loading'}
-	<div
-		class="fixed left-0 top-0 z-[2000000000] h-screen w-screen rounded bg-black bg-cover bg-center bg-no-repeat"
-	>
-		<div class="z-[2000000002] h-screen w-screen bg-gradient-to-t from-black">
-			<video
-				class="intro-video"
-				src="https://assets.vestate.io/webtool/kraheja/kraheja/Logos/output.mp4"
-				autoplay
-				muted
-				loop
-				playsinline
-				style="width: 100vw; height: 100vh; object-fit: cover; position: absolute; left: 0; top: 0; z-index: -1;"
-			></video>
-			<button
-				on:click={toggleIntroAudio}
-				class="intro-mute-btn fixed top-5 left-5 z-[2000000003] rounded-full text-white cursor-pointer flex items-center justify-center"
-				aria-label={introVideoMuted ? "Unmute audio" : "Mute audio"}
-			>
-				{#if introVideoMuted}
-					<!-- Muted Speaker Icon -->
-					<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-						<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-						<line x1="23" y1="9" x2="17" y2="15"></line>
-						<line x1="17" y1="9" x2="23" y2="15"></line>
-					</svg>
-				{:else}
-					<!-- Playing Speaker Icon -->
-					<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-						<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-						<path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
-					</svg>
-				{/if}
-			</button>
-			<div class="intro-container fixed inset-0 z-[2000000003] pointer-events-none select-none">
-				<!-- Left Bottom Text Section -->
-				<div class="intro-text-container absolute left-6 md:left-16 bottom-6 md:bottom-16 flex flex-col items-start text-left text-white max-w-[55%] md:max-w-[40%] lg:max-w-[40%] xl:max-w-[38%] pointer-events-none">
-					<!-- STEP › INTO -->
-					<div class="flex items-center gap-2 text-[10px] md:text-2xl font-light tracking-[0.3em] uppercase text-white/90">
-						<span style="font-family: 'Viaoda Libre', serif !important;">STEP</span>
-						<span class="text-[#c5a880] text-sm md:text-5xl font-normal leading-none" style="transform: translateY(-5px); font-family: 'Viaoda Libre', serif !important;">›</span>
-						<span style="font-family: 'Viaoda Libre', serif !important;">INTO</span>
-					</div>
-
-					<!-- K RAHEJA -->
-				 	<img 
-		src={rahejaLogo} 
-		alt="Raheja Logo" 
-		class="text-logo cursor-pointer" 
-	 
-	/>
-
-					<!-- Description -->
-					<p class="text-[9px] md:text-[15px] font-light text-white/70 leading-relaxed tracking-wider normal-case " style="font-family: 'Imprima', sans-serif;">
-			 Explore a location where iconic landmarks, cultural destinations and everyday experiences come together, seamlessly connected to your lifestyle.				</p>
-				</div>
-
-				<!-- Right Bottom Button Container -->
-				<div class="intro-btn-container absolute right-6 md:right-16 bottom-6 md:bottom-16 pointer-events-auto">
-					<button
-						id="v-start-btn"
-						on:click={startExperience}
-						class="get-started-btn cursor-pointer"
-					>
-						DISCOVER
-					</button>
-				</div>
-			</div>
-		</div>
-	</div>
-{/if}
 {#if $UIPanel == 'instructions-exterior' && $currentUI.Exterior && $walkthroughDisabled}
 	<div class="centered-panel instruction-screen p-4">
 		<div class="left-panel--header mb-3 flex justify-between">
@@ -1038,67 +965,6 @@
 	</div>
 {/if}
 
-{#if showVideoIntro}
-	<div bind:this={videoIntroScreenEl} class="video-intro-screen fixed left-0 top-0 z-[2000000010] h-screen w-screen bg-black overflow-hidden">
-		<img
-			src={introPoster}
-			alt=""
-			aria-hidden="true"
-			class="video-intro-poster absolute left-0 top-0 h-full w-full object-cover"
-		/>
-		<video
-			bind:this={introPlaybackEl}
-			class="video-intro-bg absolute left-0 top-0 h-full w-full object-cover"
-			class:video-ready={introVideoReady}
-			src={newRahejaVid}
-			poster={introPoster}
-			preload="auto"
-			autoplay
-			muted
-			playsinline
-			on:loadeddata={() => (introVideoReady = true)}
-			on:ended={handleIntroVideoEnded}
-			on:timeupdate={handleVideoTimeUpdate}
-		></video>
-		{#if introAudioBlocked}
-			<button
-				on:click={unmuteIntro}
-				class="intro-mute-btn fixed top-5 left-5 z-[2000000013] rounded-full text-white cursor-pointer flex items-center justify-center"
-				type="button"
-				aria-label="Unmute audio"
-			>
-				<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-					<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-					<line x1="23" y1="9" x2="17" y2="15"></line>
-					<line x1="17" y1="9" x2="23" y2="15"></line>
-				</svg>
-			</button>
-		{/if}
-		<div class="video-intro-text absolute inset-0 flex flex-col items-center justify-center text-center px-4 pointer-events-none" class:transitioning={introTransitioning}>
-				 	<img 
-		src={rahejaLogo} 
-		alt="Raheja Logo" 
-		class=" cursor-pointer" 
-	 
-	/>
-			<p class="video-intro-subheading">
-				{typedSubheading}<span class="typing-caret">|</span>
-			</p>
-		</div>
-		<!-- Skip Button on Bottom Right -->
-		<div class="video-skip-container absolute right-6 md:right-16 bottom-6 md:bottom-16 z-[2000000015] pointer-events-auto">
-			<button
-				id="skip-intro-btn"
-				on:click={skipIntroVideo}
-				class="get-started-btn skip-intro-btn cursor-pointer"
-				type="button"
-				aria-label="Skip video"
-			>
-				SKIP
-			</button>
-		</div>
-	</div>
-{/if}
 
 {#if showMenuContent}
 	<div
@@ -1110,7 +976,7 @@
 		<!-- Background building, held at its natural cover-fit size -->
 		<div class="menu-bg-layer fixed inset-0 pointer-events-none flex items-center justify-center" style="z-index: 1;">
 			{#if !imageLoaded}
-				<img class="w-full h-full object-cover" src={menuBgUrl} alt="Building background" />
+				<img class="w-full h-full object-fill" src={menuBgUrl} alt="Building background" />
 			{/if}
 			<canvas
 				bind:this={canvas}

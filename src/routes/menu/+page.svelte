@@ -9,7 +9,7 @@
 	const UIPanel = getContext('UIPanel');
 	const introVideoLastFrame = getContext('introVideoLastFrame');
 
-	let menuBgUrl = $derived($introVideoLastFrame || '/rahejanew1.png');
+	let menuBgUrl = $derived($introVideoLastFrame || '/landing.png');
 
 	let currentSlide = $state(1);
 	let cardsCollapsed = $state(true);
@@ -108,7 +108,11 @@
 			}
 
 			displacement.y *= u_aspectRatio;
-			gl_FragColor = texture2D(u_image, tc - displacement);
+			if (v_texCoord.x < 0.0 || v_texCoord.x > 1.0 || v_texCoord.y < 0.0 || v_texCoord.y > 1.0) {
+				gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+			} else {
+				gl_FragColor = texture2D(u_image, tc - displacement);
+			}
 		}
 	`;
 
@@ -185,17 +189,12 @@
 		const imageRatio = imgWidth / imgHeight;
 		const canvasRatio = canvasWidth / canvasHeight;
 
-		if (canvasRatio > imageRatio) {
-			uScale = 1.0;
-			vScale = imageRatio / canvasRatio;
-			uOffset = 0.0;
-			vOffset = (1.0 - vScale) * 0.5;
-		} else {
-			uScale = canvasRatio / imageRatio;
-			vScale = 1.0;
-			uOffset = (1.0 - uScale) * 0.5;
-			vOffset = 0.0;
-		}
+		// Full image height always visible (no top/bottom crop); width is stretched
+		// to fill the screen horizontally.
+		uScale = 1.0;
+		vScale = 1.0;
+		uOffset = 0.0;
+		vOffset = 0.0;
 	}
 
 	function resizeCanvas() {
@@ -503,7 +502,7 @@
 	<!-- Background building, held at its natural cover-fit size -->
 	<div class="menu-bg-layer fixed inset-0 pointer-events-none flex items-center justify-center" style="z-index: 1;">
 		{#if !imageLoaded}
-			<img class="w-full h-full object-cover" src={menuBgUrl} alt="Building background" />
+			<img class="w-full h-full object-fill" src={menuBgUrl} alt="Building background" />
 		{/if}
 		<canvas
 			bind:this={canvas}

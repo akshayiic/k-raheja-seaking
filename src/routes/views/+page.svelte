@@ -4,6 +4,7 @@
 	import { getContext } from 'svelte';
 	import { writable, derived } from 'svelte/store';
     import { goto } from '$app/navigation';
+	import { viewFloors, viewTimes, viewScenePath, findVicinityItem } from '$lib/seakingAssets.js';
 	let Marzipano;
 
 	const hotspotName = getContext('hotspotName');
@@ -11,59 +12,36 @@
 	$currentUI['views'] = true;
 	const UIPanel = getContext('UIPanel');
 
-	// Available floors for each time of day
-	const floors = [
-		{ id: '0-2nd-floor', name: '2nd Floor' },
-		{ id: '1-4th-floor', name: '4th Floor' },
-		{ id: '2-6th-floor', name: '6th Floor' },
-		{ id: '3-8th-floor', name: '8th Floor' },
-		{ id: '4-10th-floor', name: '10th Floor' },
-		{ id: '5-12th-floor', name: '12th Floor' },
-		{ id: '6-14th-floor', name: '14th Floor' },
-		{ id: '7-16th-floor', name: '16th Floor' },
-		{ id: '8-18th-floor', name: '18th Floor' },
-		{ id: '9-20th-floor', name: '20th Floor' },
-		{ id: '10-22nd-floor', name: '22nd Floor' }
-	];
+	// Available floors for each time of day (scene ids differ per time — see seakingAssets.js)
+	const floors = viewFloors;
 
 	const reversedFloorsWithIndices = floors.map((f, i) => ({ ...f, originalIndex: i })).reverse();
 
-	// Info hotspots data - using correct yaw/pitch from APP_DATA
+	// Info hotspots for the Amenity level (Morning) — yaw/pitch from the Seaking Marzipano export.
+	// `side` keeps each label's hand-tuned direction from the previous set.
 	const infoHotspots = [
-		{ yaw: 1.8844940263482037, pitch: -0.05054815947613989, title: 'Bandra Worli Sea Link', side: 'left', height: 60 },
-		{
-			yaw: -1.9542776260578663,
-			pitch: 0.22421612137353364,
-			title: 'Bandstand & Carter Road Promenade',
-			side: 'right',
-			height: 60
-		},
-		{ yaw: -0.4555211228580287, pitch: 0.01301193885635854, title: 'BKC (Bandra-Kurla Complex)', side: 'right', height: 60 },
-		{ yaw: -0.6126043828326306, pitch: 0.12261471785871336, title: 'Lilavati Hospital', side: 'right', height: 60 },
-		{
-			yaw: -0.58810601011943326,
-			pitch: 0.059821744772238006,
-			title: 'Dhirubhai Ambani International School',
-			side: 'left',
-			height: 60
-		},
-		{ yaw: -1.6807002432938933, pitch: 0.08104243591002991, title: 'Otters Club', side: 'left', height: 60 },
-		{ yaw: 2.073285248111959, pitch: -0.015141630319693178, title: 'Taj Lands End', side: 'right', height: 60 },
-		{ yaw: -0.1492642036394205, pitch: 0.02223561794271589, title: 'Jio World Centre (NMACC)', side: 'left', height: 60 },
-		{ yaw: -0.18302367651812048, pitch: 0.06513596391294918, title: 'Jio World Drive', side: 'right', height: 60 },
-		{ yaw: -2.1649118474316467, pitch: -0.010187657007763917, title: 'Versova–Bandra Sea Link', side: 'left', height: 60 },
-		{ yaw: 1.407461676916748, pitch: -0.06262553263736237, title: 'Worli business district', side: 'left', height: 60 },
-		{ yaw: 1.41569761010296, pitch: 0.22940729869127985, title: 'Mount Mary Basilica', side: 'right', height: 60 },
-		{ yaw: -0.32055851759378484, pitch: 0.06708659007874473, title: 'American School of Bombay', side: 'left', height: 60 },
-		{ yaw: -0.6243483273298018, pitch: 0.03932089879253553, title: 'Asian Heart Institute', side: 'left', height: 60 },
-		{ yaw: -1.1134199121902082, pitch: 0.013543448224595522, title: 'Pali Hill/Linking Road', side: 'left', height: 60 }
+		{ yaw: -2.3933366719004567, pitch: 0.24490037113676166, title: 'Mount Mary Basilica', side: 'right', height: 60 },
+		{ yaw: -1.5033055594753009, pitch: -0.03590429798388328, title: 'Bandra Worli Sea Link', side: 'left', height: 60 },
+		{ yaw: -1.4407648544781821, pitch: 0.10954063950802606, title: 'Taj Lands End', side: 'right', height: 60 },
+		{ yaw: -2.4369888134318387, pitch: -0.038474433627067484, title: 'Worli business district', side: 'left', height: 60 },
+		{ yaw: 1.2679139568392035, pitch: 0.3602239360865731, title: 'Bandstand & Carter Road Promenade', side: 'right', height: 60 },
+		{ yaw: 0.8460049539203371, pitch: 0.03152529317160635, title: 'Versova–Bandra Sea Link', side: 'left', height: 60 },
+		{ yaw: 1.6979486531817871, pitch: 0.13434710094206004, title: 'Otters Club', side: 'left', height: 60 },
+		{ yaw: 1.8356727817929839, pitch: 0.031694567153557784, title: 'Pali Hill/Linking Road', side: 'left', height: 60 },
+		{ yaw: 2.5381903410175912, pitch: 0.07963549875106501, title: 'Lilavati Hospital', side: 'right', height: 60 },
+		{ yaw: 2.52674841938165, pitch: -0.06164556813085298, title: 'Dhirubhai Ambani International School', side: 'left', height: 60 },
+		{ yaw: 2.4487294747446864, pitch: 0.0023716618291622638, title: 'Asian Heart Institute', side: 'left', height: 60 },
+		{ yaw: 2.6084192680593468, pitch: -0.11710304331916888, title: 'BKC (Bandra-Kurla Complex)', side: 'right', height: 60 },
+		{ yaw: 2.732296208749399, pitch: 0.017351364843236183, title: 'American School of Bombay', side: 'left', height: 60 },
+		{ yaw: 2.900433864184567, pitch: 0.005290657278260724, title: 'Jio World Drive', side: 'right', height: 60 },
+		{ yaw: 2.9296965245782625, pitch: -0.04721866851412848, title: 'Jio World Centre (NMACC)', side: 'left', height: 60 }
 	];
 
-	// Initial view parameters from APP_DATA
+	// Initial view parameters from the Seaking data.json files
 	const initialView = {
-		yaw: -2.9963666940833633,
-		pitch: -0.029559784263739175,
-		fov: 1.4438271227947086
+		yaw: 0,
+		pitch: 0,
+		fov: 1.5707963267948966
 	};
 
 	// Scene levels/tile configuration
@@ -80,12 +58,12 @@
 	let currentScene = null;
 	let viewChangeHandler = null;
 
-	// Main overview uses 22nd floor
-	const mainFloorIndex = 10;
+	// Main overview (default view + info hotspots) is the Amenity level
+	const mainFloorIndex = floors.findIndex((f) => f.name === 'Amenity Floor');
 
 	// State
 	const selectedTime = writable('morning');
-	const selectedFloorIndex = writable(10);
+	const selectedFloorIndex = writable(mainFloorIndex);
 	const isMainOverview = derived(selectedFloorIndex, ($index) => $index === mainFloorIndex);
 
 	// Hotspot toggle state
@@ -121,22 +99,20 @@
 			: viewer.controls().method('mouseViewDrag').instance;
 
 		// Load main overview by default
-		loadScene('morning', 10);
+		loadScene('morning', mainFloorIndex);
 		UIPanel.set('loaded');
 	});
 
 	// Time of day states
-	const availableTimes = ['morning', 'afternoon', 'evening', 'night'];
+	const availableTimes = viewTimes;
 
-	const createScene = (time, sceneId) => {
-		// Scene path: {time}/app-files/tiles/{sceneId}
-		const baseURL = 'https://assets.vestate.io/kl-rahega/new-droneshots';
-
-		const scenePath = `${time}/app-files/tiles/${sceneId}`;
+	const createScene = (time, floor) => {
+		// Scene path: {VIEWS_BASE}/{Time}/tiles/{sceneId}
+		const scenePath = viewScenePath(time, floor);
 
 		let source = Marzipano.ImageUrlSource.fromString(
-			`${baseURL}/${scenePath}/{z}/{f}/{y}/{x}.jpg`,
-			{ cubeMapPreviewUrl: `${baseURL}/${scenePath}/preview.jpg` }
+			`${scenePath}/{z}/{f}/{y}/{x}.jpg`,
+			{ cubeMapPreviewUrl: `${scenePath}/preview.jpg` }
 		);
 
 		let geometry = new Marzipano.CubeGeometry(levels);
@@ -150,7 +126,7 @@
 			pinFirstLevel: true
 		});
 
-		const sceneKey = `${time}_${sceneId}`;
+		const sceneKey = `${time}_${floor.ids[time]}`;
 		allScenes[sceneKey] = { source, view, scene, time };
 	};
 
@@ -162,11 +138,11 @@
 		const floor = floors[floorIndex];
 		if (!floor) return;
 
-		const sceneKey = `${time}_${floor.id}`;
+		const sceneKey = `${time}_${floor.ids[time]}`;
 
 		// Lazily create scene if it doesn't exist in cache yet
 		if (!allScenes[sceneKey]) {
-			createScene(time, floor.id);
+			createScene(time, floor);
 		}
 
 		// Move current scene to most-recently-used in cache order
@@ -208,8 +184,8 @@
 			currentScene.view().removeEventListener('change', activeViewListener);
 		}
 
-		// Add info hotspots only for main overview (22nd floor) AND when enabled
-		const shouldShowHotspots = floorIndex === mainFloorIndex && $hotspotsEnabled;
+		// Info hotspots only on the Amenity level, in Morning, and when enabled
+		const shouldShowHotspots = floorIndex === mainFloorIndex && time === 'morning' && $hotspotsEnabled;
 
 		if (shouldShowHotspots) {
 			infoHotspots.forEach((hotspot, index) => {
@@ -335,67 +311,23 @@
 		loadScene($selectedTime, $selectedFloorIndex);
 	};
 
+	// Maps each panorama hotspot title to its Vicinities item (gallery thumbnail source)
 	const hotspotImageMap = {
-		'Bandra Worli Sea Link': {
-			cat: 'Connectivity',
-			folder: 'Bandra Worli Sea Link'
-		},
-		'Bandstand & Carter Road Promenade': {
-			cat: 'Retail%20%26%20Lifestyle',
-			folder: 'Bandstand'
-		},
-		'BKC (Bandra-Kurla Complex)': {
-			cat: 'Commercial',
-			folder: 'BKC'
-		},
-		'Lilavati Hospital': {
-			cat: 'Hospitals',
-			folder: 'Lilavati Hospital'
-		},
-		'Dhirubhai Ambani International School': {
-			cat: 'Education%20Institutes',
-			folder: 'Dhirubhai Ambani International School'
-		},
-		'Otters Club': {
-			cat: 'Cafe%20%26%20Clubs',
-			folder: 'Otter_s'
-		},
-		'Taj Lands End': {
-			cat: 'Cafe%20%26%20Clubs',
-			folder: 'Taj Lounges'
-		},
-		'Jio World Centre (NMACC)': {
-			cat: 'Commercial',
-			folder: 'Jio World Centre'
-		},
-		'Jio World Drive': {
-			cat: 'Retail%20%26%20Lifestyle',
-			folder: 'Jio World Drive'
-		},
-		'Versova–Bandra Sea Link': {
-			cat: 'Connectivity',
-			folder: 'Versova-Bandra sea link'
-		},
-		'Worli business district': {
-			cat: 'Commercial',
-			folder: 'Worli'
-		},
-		'Mount Mary Basilica': {
-			cat: 'Faith%20%26%20Heritage',
-			folder: 'Mount Mary'
-		},
-		'American School of Bombay': {
-			cat: 'Education%20Institutes',
-			folder: 'American School of Bombay'
-		},
-		'Asian Heart Institute': {
-			cat: 'Hospitals',
-			folder: 'Asian Heart Institute'
-		},
-		'Pali Hill/Linking Road': {
-			cat: 'Retail%20%26%20Lifestyle',
-			folder: 'Linking-Hill Road'
-		}
+		'Bandra Worli Sea Link': 'Connectivity/bandraworlisealink',
+		'Bandstand & Carter Road Promenade': 'Retail & Lifestyle/bandstand',
+		'BKC (Bandra-Kurla Complex)': 'Commercial/bkc',
+		'Lilavati Hospital': 'Hospital/lilavatihosp',
+		'Dhirubhai Ambani International School': 'Education/dhirubhaiambanischool',
+		'Otters Club': 'Cafe & Clubs/otters',
+		'Taj Lands End': 'Cafe & Clubs/tajlounges',
+		'Jio World Centre (NMACC)': 'Commercial/jioworldcentre',
+		'Jio World Drive': 'Retail & Lifestyle/jioworlddrive',
+		'Versova–Bandra Sea Link': 'Connectivity/upcomingversovasealink',
+		'Worli business district': 'Commercial/worli',
+		'Mount Mary Basilica': 'Places of Worship/mountmary',
+		'American School of Bombay': 'Education/americanschoolofbombay',
+		'Asian Heart Institute': 'Hospital/asianhearthosp',
+		'Pali Hill/Linking Road': 'Retail & Lifestyle/linkinghillroad'
 	};
 
 	const createInfoHotspot = (scene, hotspotData, index) => {
@@ -428,10 +360,10 @@
 		hotspot.classList.add('hotspot');
 		hotspot.classList.add('overview-hotspot-label');
 
-		const imgData = hotspotImageMap[hotspotData.title];
+		const imgData = findVicinityItem(hotspotImageMap[hotspotData.title]);
 		if (imgData) {
 			const img = document.createElement('img');
-			img.src = `https://assets.vestate.io/kl-rahega/images/${imgData.cat}/${encodeURIComponent(imgData.folder)}/1.png`;
+			img.src = `${imgData.gallery}/1.webp`;
 			img.alt = hotspotData.title;
 			img.classList.add('hotspot-label-img');
 			hotspot.appendChild(img);
@@ -716,7 +648,7 @@
 		<div class="dial-center-label">
 			<span class="text-[12px] tracking-widest text-white/40 uppercase">Total Floors</span>
 			<span class="text-3xl font-semibold text-white mt-1 mx-auto"  >
-				22<span class="text-xs font-normal align-top ml-0.5  ">th</span>
+				28<span class="text-xs font-normal align-top ml-0.5  ">th</span>
 			</span>
 		</div>
 
@@ -743,8 +675,9 @@
 				{@const fy = Math.sin(rad) * 175}
 				{@const opacity = Math.max(0, 1 - Math.abs(angle) / 75)}
 				{@const visible = Math.abs(angle) <= 75}
-				{@const floorNum = floor.name.match(/\d+/)[0]}
+				{@const floorNum = floor.name.match(/\d+/)?.[0] ?? 'A'}
 				<button
+					title={floor.name}
 					class="dial-floor-btn {$selectedFloorIndex === floor.originalIndex ? 'active' : ''}"
 					style="left: {fx}px; top: calc(50% + {fy}px); opacity: {opacity}; pointer-events: {visible ? 'auto' : 'none'};"
 					on:click={() => selectFloor(floor.originalIndex)}
