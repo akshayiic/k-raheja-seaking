@@ -61,12 +61,65 @@
 		return setTimeout(fn, ms);
 	}
 
+	// Cards: 1 = Views, 2 = Vicinity, 3 = Brand Video
+	const TOTAL_SLIDES = 3;
 	let currentSlide = $state(1);
 	let cardsCollapsed = $state(true);
 	let card1W = $state(420);
 	let card1H = $state(231);
 	let card2W = $state(420);
 	let card2H = $state(231);
+	let card3W = $state(420);
+	let card3H = $state(231);
+
+	const nextSlideOf = (n) => (n % TOTAL_SLIDES) + 1;
+	const pad2 = (n) => String(n).padStart(2, '0');
+	// front = active card, back = the next card peeking behind it, stowed = hidden further back
+	const cardState = (n) => (n === currentSlide ? 'front' : n === nextSlideOf(currentSlide) ? 'back' : 'stowed');
+	function goToNextSlide() {
+		currentSlide = nextSlideOf(currentSlide);
+	}
+
+	// Brand video (full-screen player opened from the third card)
+	const BRAND_VIDEO_URL = 'https://assets.vestate.io/webtool/kraheja/seaking/Logos/RAHEJA_Bandra_V5.mp4';
+	let showBrandVideo = $state(false);
+	let brandVideoEl = $state(null);
+	let brandVideoMuted = $state(false);
+
+	async function openBrandVideo() {
+		brandVideoMuted = false;
+		showBrandVideo = true;
+		// Start with sound (we're inside the click gesture); if the browser blocks it,
+		// fall back to muted playback — the top-left button lets the user unmute.
+		await tick();
+		if (brandVideoEl) {
+			brandVideoEl.muted = false;
+			brandVideoEl.play().catch(() => {
+				brandVideoMuted = true;
+				brandVideoEl.muted = true;
+				brandVideoEl.play().catch(() => {});
+			});
+		}
+	}
+
+	function toggleBrandVideoMute() {
+		brandVideoMuted = !brandVideoMuted;
+		if (brandVideoEl) {
+			brandVideoEl.muted = brandVideoMuted;
+			if (!brandVideoMuted) brandVideoEl.play().catch(() => {});
+		}
+	}
+
+	function closeBrandVideo() {
+		try {
+			brandVideoEl?.pause();
+		} catch (e) {}
+		showBrandVideo = false;
+	}
+
+	function handleBrandVideoKey(e) {
+		if (showBrandVideo && e.key === 'Escape') closeBrandVideo();
+	}
 
 	let menuUIHidden = $state(false);
 	let showClouds = $state(false);
@@ -566,6 +619,10 @@
 	}
 
 	async function handleExploreClick() {
+		if (currentSlide === 3) {
+			openBrandVideo();
+			return;
+		}
 		const destination = currentSlide === 1 ? 'views' : 'vicinity';
 		const targetPath = destination === 'views' ? '/views' : '/vicinities';
 
@@ -1002,7 +1059,7 @@
 						if (cardsCollapsed) {
 							cardsCollapsed = false;
 						} else {
-							currentSlide = currentSlide === 1 ? 2 : 1;
+							goToNextSlide();
 						}
 					}}
 					class="toggle-slide-btn w-10 h-10 rounded-full bg-black/40 hover:bg-black/60 transition-all duration-300 flex items-center justify-center text-[#DEAD66] cursor-pointer z-30 !p-0"
@@ -1032,11 +1089,59 @@
 					</button>
 				{/if}
 
+				<!-- Card 3 (BRAND VIDEO) -->
+				<div
+					bind:clientWidth={card3W}
+					bind:clientHeight={card3H}
+					class="nav-card {cardState(3)} cursor-pointer"
+					on:click={() => currentSlide === 3 ? openBrandVideo() : (currentSlide = 3)}
+				>
+					<div class="glass-blur-bg"></div>
+					<svg class="absolute inset-0 w-full h-full pointer-events-none" style="z-index: -1;">
+						<path d="M 40,0 L {card3W - 40},0 A 40,40 0 0 1 {card3W},40 L {card3W},{card3H - 40} A 40,40 0 0 1 {card3W - 40},{card3H} L 40,{card3H} A 40,40 0 0 1 0,{card3H - 40} L 0,40 A 40,40 0 0 1 40,0 Z"
+						      fill="rgba(18, 18, 18, 0.45)"
+						      stroke="rgba(255, 255, 255, 0.12)"
+						      stroke-width="1.2" />
+					</svg>
+
+					<!-- Text section -->
+					<div class="flex flex-col flex-1 text-left relative z-10 max-w-[48%]">
+						<h2 class="text-3xl tracking-[0.03em] text-white mb-2 font-normal uppercase" style="font-family: 'The Seasons', serif;">
+							BRAND VIDEO
+						</h2>
+						<p class="text-white/70 text-[13px] mb-2 normal-case font-light max-w-[225px]" style="font-family: 'Imprima', sans-serif; letter-spacing: 0.02em; line-height: 1.7;">
+							Watch The K Raheja Story And Experience The Vision Behind This Landmark Address.
+						</p>
+						<!-- Watch button -->
+						<button
+							on:click={(e) => { e.stopPropagation(); openBrandVideo(); }}
+							class="explore-card-btn self-start flex items-center justify-center gap-2 px-5 py-2 rounded-full border border-[#c5a880] text-[10px] text-[#e5d5be] tracking-widest bg-transparent hover:bg-[#c5a880] hover:text-[#1e1e1e] transition-all duration-300 cursor-pointer !h-auto !w-auto"
+							style="font-family: 'Imprima', sans-serif;"
+						>
+							<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+								<polygon points="6 4 20 12 6 20 6 4"></polygon>
+							</svg>
+							Watch
+						</button>
+					</div>
+
+					<!-- Thumbnail: a single still frame (the full 36 MB file only streams when opened) -->
+					<div class="thumbnail-cutout z-10" style="--subtract-mask: url({subtractImg});">
+						<video
+							class="w-full h-full object-cover pointer-events-none"
+							src="{BRAND_VIDEO_URL}#t=3"
+							preload="metadata"
+							muted
+							playsinline
+						></video>
+					</div>
+				</div>
+
 				<!-- Card 2 (VICINITY) -->
 				<div 
 					bind:clientWidth={card2W} 
 					bind:clientHeight={card2H}
-					class="nav-card {currentSlide === 2 ? 'front' : 'back'} cursor-pointer"
+					class="nav-card {cardState(2)} cursor-pointer"
 					on:click={() => currentSlide === 2 ? handleExploreClick() : (currentSlide = 2)}
 				>
 					<div class="glass-blur-bg"></div>
@@ -1087,7 +1192,7 @@
 				<div 
 					bind:clientWidth={card1W} 
 					bind:clientHeight={card1H}
-					class="nav-card {currentSlide === 1 ? 'front' : 'back'} cursor-pointer"
+					class="nav-card {cardState(1)} cursor-pointer"
 					on:click={() => currentSlide === 1 ? handleExploreClick() : (currentSlide = 1)}
 				>
 					<div class="glass-blur-bg"></div>
@@ -1139,23 +1244,23 @@
 			<button 
 				class="custom-indicator select-none cursor-pointer border-0 bg-transparent p-0 flex items-baseline outline-none" 
 				style="font-family: 'IvyPresto Text', serif;"
-				on:click={() => currentSlide = currentSlide === 1 ? 2 : 1}
-				aria-label="Toggle slide"
+				on:click={goToNextSlide}
+				aria-label="Next slide"
 			>
 				<div class="indicator-num large">
 					{#key currentSlide}
 						<span transition:fade={{ duration: 250 }}>
-							{currentSlide === 1 ? '01' : '02'}
+							{pad2(currentSlide)}
 						</span>
 					{/key}
 				</div>
-				
+
 				<div class="indicator-line"></div>
-				
+
 				<div class="indicator-num small">
 					{#key currentSlide}
 						<span transition:fade={{ duration: 250 }}>
-							{currentSlide === 1 ? '02' : '01'}
+							{pad2(nextSlideOf(currentSlide))}
 						</span>
 					{/key}
 				</div>
@@ -1188,7 +1293,127 @@
 	</div>
 {/if}
 
+<svelte:window on:keydown={handleBrandVideoKey} />
+
+<!-- Brand Video full-screen player -->
+{#if showBrandVideo}
+	<div
+		class="brand-video-overlay fixed inset-0 z-[2000000020] flex items-center justify-center bg-black"
+		transition:fade={{ duration: 300 }}
+	>
+		<!-- No controls / seekbar: playback is driven only by the mute toggle and Go Back -->
+		<video
+			bind:this={brandVideoEl}
+			class="absolute inset-0 h-full w-full object-cover pointer-events-none"
+			src={BRAND_VIDEO_URL}
+			autoplay
+			playsinline
+			muted={brandVideoMuted}
+			disablepictureinpicture
+			on:ended={closeBrandVideo}
+		></video>
+
+		<!-- Mute / unmute (top-left, same glass style as the original intro's mute button) -->
+		<button
+			on:click={toggleBrandVideoMute}
+			class="brand-mute-btn rounded-full text-white cursor-pointer flex items-center justify-center"
+			type="button"
+			aria-label={brandVideoMuted ? 'Unmute audio' : 'Mute audio'}
+		>
+			{#if brandVideoMuted}
+				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+					<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+					<line x1="23" y1="9" x2="17" y2="15"></line>
+					<line x1="17" y1="9" x2="23" y2="15"></line>
+				</svg>
+			{:else}
+				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+					<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+					<path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+				</svg>
+			{/if}
+		</button>
+
+		<!-- Go Back (bottom-left, identical to the Vicinity page button) -->
+		<button class="brand-go-back-btn" on:click={closeBrandVideo} type="button">
+			<svg class="w-3.5 h-3.5 mr-1.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+				<line x1="19" y1="12" x2="5" y2="12"></line>
+				<polyline points="12 19 5 12 12 5"></polyline>
+			</svg>
+			Go Back
+		</button>
+	</div>
+{/if}
+
 <style>
+	/* Brand video mute toggle — compact glass button pinned top-left */
+	.brand-mute-btn {
+		position: fixed !important;
+		top: 20px;
+		left: 20px;
+		z-index: 2000000021;
+		width: 38px !important;
+		height: 38px !important;
+		min-width: 0 !important;
+		padding: 0 !important;
+		background: rgba(30, 30, 30, 0.45);
+		backdrop-filter: blur(10px);
+		-webkit-backdrop-filter: blur(10px);
+		border: 1.2px solid rgba(255, 255, 255, 0.15) !important;
+		box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+		color: rgba(255, 255, 255, 0.85);
+		transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+	}
+
+	.brand-mute-btn:hover {
+		background: rgba(222, 173, 102, 1);
+		border-color: rgba(222, 173, 102, 1) !important;
+		color: white;
+		box-shadow: 0 0 15px rgba(222, 173, 102, 0.45);
+	}
+
+	@media (max-width: 768px), (max-width: 950px) and (orientation: landscape) {
+		.brand-mute-btn {
+			top: 14px;
+			left: 14px;
+			width: 34px !important;
+			height: 34px !important;
+		}
+	}
+
+	/* Same look & position as .go-back-btn on the Vicinity page */
+	.brand-go-back-btn {
+		position: fixed;
+		bottom: 24px;
+		left: 24px;
+		z-index: 2000000021;
+		background: rgba(30, 30, 30, 0.45);
+		border-radius: 9999px;
+		padding: 8px 20px !important;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		backdrop-filter: blur(10px);
+		-webkit-backdrop-filter: blur(10px);
+		border: 1.2px solid rgba(255, 255, 255, 0.15) !important;
+		box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+		color: rgba(255, 255, 255, 0.85);
+		font-size: 11px !important;
+		font-weight: 500;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		cursor: pointer;
+		transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+		font-family: 'Imprima', sans-serif;
+	}
+
+	.brand-go-back-btn:hover {
+		background: rgba(222, 173, 102, 1);
+		border-color: rgba(222, 173, 102, 1) !important;
+		color: white;
+		box-shadow: 0 0 15px rgba(222, 173, 102, 0.45);
+	}
+
 	button {
 		background-size: 100% 100%;
 		background-repeat: no-repeat;
@@ -1476,6 +1701,18 @@
 		transform: translate(0, -28px) scale(0.93) !important;
 		pointer-events: none;
 		filter: blur(1.5px) !important;
+		left: 15% !important;
+		right: 20% !important;
+		width: 80% !important;
+	}
+
+	/* Third card waits fully hidden behind the "back" card until it rotates forward */
+	.nav-card.stowed {
+		z-index: 5;
+		opacity: 0 !important;
+		transform: translate(0, -48px) scale(0.86) !important;
+		pointer-events: none;
+		filter: blur(3px) !important;
 		left: 15% !important;
 		right: 20% !important;
 		width: 80% !important;
